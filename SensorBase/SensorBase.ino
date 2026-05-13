@@ -183,6 +183,7 @@ void initSD() {
     Serial.println(DataFileName.c_str());
 }
 
+//TODO: fix pressure and temp readings, and compass scale? seems to hit 8 bit limit in data
 void initIMU(){
     Wire.begin();
     Wire.setClock(400000);  // Fast I2C
@@ -463,21 +464,22 @@ void readIMU(dataBlock& data) {
     }
 }
 
+//TODO: get altitude, HDOP, Fixquality, and satellite count to read properly
 inline void readGPS(dataBlock& data) {
-    GPS.parse(GPS.lastNMEA());
-    data.GPSData.fixquality = GPS.fixquality;
-    data.GPSData.lat = (float)GPS.latitude; 
-    data.GPSData.lon = (float)GPS.longitude;
-    data.GPSData.alt = (float)GPS.altitude;
-    data.GPSData.latDir = GPS.lat; 
-    data.GPSData.lonDir = GPS.lon;
-    data.GPSData.speed = (float)GPS.speed;
-    data.GPSData.HDOP = (float)GPS.HDOP;
-    data.GPSData.satellites = (int)GPS.satellites;
-    Serial.print("Fix: "); Serial.print((int)GPS.fix);
-    Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
-    Serial.print("Altitude: "); Serial.println(GPS.altitude);
-    Serial.print("HDOP: "); Serial.println(GPS.HDOP);
+    if(GPS.parse(GPS.lastNMEA())){
+        data.GPSData.fixquality = GPS.fixquality;
+        data.GPSData.lat = (float)GPS.latitude; 
+        data.GPSData.lon = (float)GPS.longitude;
+        data.GPSData.alt = (float)GPS.altitude;
+        data.GPSData.latDir = GPS.lat; 
+        data.GPSData.lonDir = GPS.lon;
+        data.GPSData.speed = (float)GPS.speed;
+        data.GPSData.HDOP = (float)GPS.HDOP;
+        data.GPSData.satellites = (int)GPS.satellites;
+    }
+    else{
+        data.type &= ~GPS_DATA;
+    }
 }
 
 void logData(dataBlock& data) {

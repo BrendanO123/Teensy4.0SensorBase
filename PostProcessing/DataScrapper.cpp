@@ -120,6 +120,69 @@ inline double getDouble(char * contents, int& offset){
     return output;
 }
 
+// ===== Unit Conversion Helper Functions =====
+
+// Convert raw accelerometer value to m/s² (SI unit)
+// fullScaleRange: 0=±2g, 1=±4g, 2=±8g, 3=±16g
+inline float convertAccelToMS2(int16_t rawValue, int fullScaleRange) {
+    float scaleFactors[] = {16.384, 8.192, 4.096, 2.048};
+    if (fullScaleRange < 0 || fullScaleRange > 3) fullScaleRange = 1; // Default to ±4g
+    float milliGs = ((float)rawValue) / scaleFactors[fullScaleRange];
+    return milliGs * 0.00981; // Convert milli-g to m/s² (1g = 9.81 m/s²)
+}
+
+// Convert raw gyroscope value to rad/s (SI unit)
+// fullScaleRange: 0=±250°/s, 1=±500°/s, 2=±1000°/s, 3=±2000°/s
+inline float convertGyroToRadPerS(int16_t rawValue, int fullScaleRange) {
+    float scaleFactors[] = {131.0, 65.5, 32.8, 16.4};
+    if (fullScaleRange < 0 || fullScaleRange > 3) fullScaleRange = 0; // Default to ±250°/s
+    float degreesPerSecond = ((float)rawValue) / scaleFactors[fullScaleRange];
+    return degreesPerSecond * (3.14159265359 / 180.0); // Convert °/s to rad/s
+}
+
+// Convert raw magnetometer value to Tesla (SI unit)
+inline float convertMagToTesla(int16_t rawValue) {
+    float microTeslas = ((float)rawValue) * 0.15;
+    return microTeslas * 1e-6; // Convert µT to T (1 µT = 1e-6 T)
+}
+
+// Alternative: Convert raw magnetometer to microTeslas (more practical unit)
+inline float convertMagToMicroTesla(int16_t rawValue) {
+    return ((float)rawValue) * 0.15;
+}
+
+// Convert raw temperature value to Celsius
+// Formula from ICM-20948 datasheet: °C = (raw_value / 333.87) + 21
+inline float convertTempToC(int16_t rawValue) {
+    return (((float)rawValue) / 333.87) + 21.0;
+}
+
+// Convert temperature from Celsius to Fahrenheit
+inline float celsiusToFahrenheit(float celsius) {
+    return (celsius * 9.0 / 5.0) + 32.0;
+}
+//TODO: pressure conversion
+
+// Convert GPS coordinates from DDMM.MMMM (degrees/minutes) format to decimal degrees
+// Input: coordinate in DDMM.MMMM format, direction ('N', 'S', 'E', 'W')
+// Output: decimal degrees (positive for N/E, negative for S/W)
+inline float convertToDecimalDegrees(float coordinate, char direction) {
+    int degrees = (int)(coordinate / 100.0);
+    float minutes = coordinate - (degrees * 100.0);
+    float decimalDegrees = degrees + (minutes / 60.0);
+    
+    // Apply sign based on direction
+    if (direction == 'S' || direction == 'W') {
+        decimalDegrees = -decimalDegrees;
+    }
+    
+    return decimalDegrees;
+}
+constexpr const double Kn_toMs = 1852.0 / 3600.0;
+inline float convertKnotsToMPS(float knots) {
+    return knots * Kn_toMs;
+}
+
 DataDump* readFile(string filePath){
     ifstream file(filePath.c_str(), std::ios::binary | std::ios::ate | std::ios::in);
     if(file.is_open() && file.good()){
@@ -213,6 +276,9 @@ bool makeCSVs(DataDump* data, string outputDir){
     string imuCompassPath = rawDataDir + "/imu_compass_data.csv";
     string imuGyroPath = rawDataDir + "/imu_gyro_data.csv";
     string imuPressurePath = rawDataDir + "/imu_pressure_data.csv";
+    string imuProcessedSIPath = processedDataDir + "/imu_processed_SI.csv"; // celsius, m/s², teslas, etc
+    string imuProcessedReadableUnitsPath = processedDataDir + "/imu_processed_readable.csv"; // fahrenheit, micro-teslas, etc
+    //TODO: add processed data outputs with converted SI units and more human readable units (fahrenheit, micro-teslas, etc)
     
     ofstream gpsFile(gpsPath);
     if(gpsFile.is_open()){

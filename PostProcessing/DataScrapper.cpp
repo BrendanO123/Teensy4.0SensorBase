@@ -24,9 +24,10 @@ struct GPSDump{
     char latDir, lonDir;
     float speed;
     float HDOP;
+    int satellites;
     
-    GPSDump(uint32_t ts, uint8_t fq, float la, float lo, float al, char ld, char lod, float s, float h)
-        : timestamp(ts), fixquality(fq), lat(la), lon(lo), alt(al), latDir(ld), lonDir(lod), speed(s), HDOP(h) {}
+    GPSDump(uint32_t ts, uint8_t fq, float la, float lo, float al, char ld, char lod, float s, float h, int sat)
+        : timestamp(ts), fixquality(fq), lat(la), lon(lo), alt(al), latDir(ld), lonDir(lod), speed(s), HDOP(h), satellites(sat) {}
 };
 struct IMURotDump{
     uint32_t timestamp;
@@ -185,7 +186,8 @@ DataDump* readFile(string filePath){
                 uint8_t lonDir = getByte(contents, index);
                 float speed = getFloat(contents, index);
                 float HDOP = getFloat(contents, index);
-                data->GPSData.emplace(timestamp, fix, lat, lon, alt, latDir, lonDir, speed, HDOP);
+                int satellites = getInt(contents, index);
+                data->GPSData.emplace(timestamp, fix, lat, lon, alt, latDir, lonDir, speed, HDOP, satellites);
             }
         }
         return data;
@@ -214,10 +216,10 @@ bool makeCSVs(DataDump* data, string outputDir){
     
     ofstream gpsFile(gpsPath);
     if(gpsFile.is_open()){
-        gpsFile << "timestamp,fixquality,lat,lon,alt,latDir,lonDir,speed,HDOP\n";
+        gpsFile << "timestamp,fixquality,lat,lon,alt,latDir,lonDir,speed,HDOP,satellites\n";
         while(!data->GPSData.empty()){
             GPSDump dump = data->GPSData.front(); data->GPSData.pop();
-            gpsFile << dump.timestamp << "," << (int)dump.fixquality << "," << dump.lat << "," << dump.lon << "," << dump.alt << "," << dump.latDir << "," << dump.lonDir << "," << dump.speed << "," << dump.HDOP << "\n";
+            gpsFile << dump.timestamp << "," << (int)dump.fixquality << "," << dump.lat << "," << dump.lon << "," << dump.alt << "," << dump.latDir << "," << dump.lonDir << "," << dump.speed << "," << dump.HDOP << "," << dump.satellites << "\n";
         }
         gpsFile.close();
         cout << "Created: " << gpsPath << endl;

@@ -74,6 +74,9 @@ struct GPSDump{
     char latDir, lonDir;
     float speed;
     float HDOP;
+    int satellites;
+    
+    GPSDump() : timestamp(0), fixquality(0), lat(0), lon(0), alt(0), latDir(0), lonDir(0), speed(0), HDOP(0), satellites(0) {}
 };
 struct IMUDump{
     uint32_t timestamp;
@@ -126,10 +129,13 @@ void setup() {
 
     // 9600 NMEA is the default baud rate for Adafruit MTK GPS's
     GPS_SERIAL.begin(9600);
+    delay(500);  // Allow GPS module to initialize
     GPS.begin(9600);  // Baud rate for UART GPS
 
     GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
     GPS.sendCommand(PMTK_SET_NMEA_UPDATE_10HZ);
+    GPS.sendCommand(PGCMD_ANTENNA);  // Request antenna status updates
+    delay(1000);  // Allow GPS to process configuration commands
 
     initIMU();
 
@@ -458,14 +464,20 @@ void readIMU(dataBlock& data) {
 }
 
 inline void readGPS(dataBlock& data) {
-    if (GPS.newNMEAreceived() && GPS.parse(GPS.lastNMEA())) { // this also sets the newNMEAreceived() flag to false
-        data.GPSData.fixquality = GPS.fixquality;
-        data.GPSData.lat = GPS.latitude; data.GPSData.lon = GPS.longitude;
-        data.GPSData.alt = GPS.altitude;
-        data.GPSData.latDir = GPS.lat; data.GPSData.lonDir = GPS.lon;
-        data.GPSData.speed = GPS.speed;
-        data.GPSData.HDOP = GPS.HDOP;
-    }
+    GPS.parse(GPS.lastNMEA());
+    data.GPSData.fixquality = GPS.fixquality;
+    data.GPSData.lat = (float)GPS.latitude; 
+    data.GPSData.lon = (float)GPS.longitude;
+    data.GPSData.alt = (float)GPS.altitude;
+    data.GPSData.latDir = GPS.lat; 
+    data.GPSData.lonDir = GPS.lon;
+    data.GPSData.speed = (float)GPS.speed;
+    data.GPSData.HDOP = (float)GPS.HDOP;
+    data.GPSData.satellites = (int)GPS.satellites;
+    Serial.print("Fix: "); Serial.print((int)GPS.fix);
+    Serial.print(" quality: "); Serial.println((int)GPS.fixquality);
+    Serial.print("Altitude: "); Serial.println(GPS.altitude);
+    Serial.print("HDOP: "); Serial.println(GPS.HDOP);
 }
 
 void logData(dataBlock& data) {
@@ -485,8 +497,26 @@ void logData(dataBlock& data) {
     memcpy(&logBuffer[logIndex], &(data.type), 1); logIndex += 1;
 
     if(data.type & GPS_DATA){
-        constexpr const size_t GPS_DATA_SIZE = sizeof(GPSDump);
-        memcpy(&logBuffer[logIndex], (char*)&(data.GPSData), GPS_DATA_SIZE); logIndex += GPS_DATA_SIZE;
+        memcpy(&logBuffer[logIndex], &(data.GPSData.timestamp), sizeof(uint32_t)); logIndex += sizeof(uint32_t);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.fixquality), sizeof(uint8_t)); logIndex += sizeof(uint8_t);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.lat), sizeof(float)); logIndex += sizeof(float);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.lon), sizeof(float)); logIndex += sizeof(float);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.alt), sizeof(float)); logIndex += sizeof(float);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.latDir), sizeof(char)); logIndex += sizeof(char);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.lonDir), sizeof(char)); logIndex += sizeof(char);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.speed), sizeof(float)); logIndex += sizeof(float);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.HDOP), sizeof(float)); logIndex += sizeof(float);
+        memcpy(&logBuffer[logIndex], &(data.GPSData.satellites), sizeof(int)); logIndex += sizeof(int);
+        Serial.print("Time: "); Serial.println(data.GPSData.timestamp);
+        Serial.print("Fix Quality: "); Serial.println(data.GPSData.fixquality);
+        Serial.print("Location: ");
+        Serial.print(data.GPSData.lat, 6); Serial.print(data.GPSData.latDir);
+        Serial.print(", ");
+        Serial.print(data.GPSData.lon, 6); Serial.println(data.GPSData.lonDir);
+        Serial.print("Altitude: "); Serial.println(data.GPSData.alt);
+        Serial.print("Speed: "); Serial.println(data.GPSData.speed);
+        Serial.print("HDOP: "); Serial.println(data.GPSData.HDOP);
+
     }
     if(data.type & IMU_ROT_DATA){
         constexpr const size_t ROT_DATA_SIZE = sizeof(double) * 3 + sizeof(int16_t);
@@ -520,6 +550,10 @@ void logData(dataBlock& data) {
 
 
 void loop() {
+    // Continuously read GPS data to keep the buffer filled
+    char c = GPS.read();
+    (void)c; // Suppress unused variable warning
+
     dataBlock data;
     if(GPSDataReady){
         GPSDataReady = false;

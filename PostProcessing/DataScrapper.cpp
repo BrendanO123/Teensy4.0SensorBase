@@ -161,7 +161,7 @@ inline float convertTempToC(int16_t rawValue) {
 inline float celsiusToFahrenheit(float celsius) {
     return (celsius * 9.0 / 5.0) + 32.0;
 }
-//TODO: pressure conversion
+//TODO: pressure conversion 
 
 // Convert GPS coordinates from DDMM.MMMM (degrees/minutes) format to decimal degrees
 // Input: coordinate in DDMM.MMMM format, direction ('N', 'S', 'E', 'W')
@@ -369,18 +369,23 @@ bool makeCSVs(DataDump* data, string outputDir){
 
 int main(int argc, char* argv[]){
     if(argc < 2){
-        cerr << "Usage: " << argv[0] << " <input_file>" << endl;
-        cerr << "Example: " << argv[0] << " inputs/sensor_data.bin" << endl;
+        cerr << "Usage: " << argv[0] << " <input_file> [output_directory]" << endl;
+        cerr << "Example: " << argv[0] << " inputs/sensor_data.bin outputs/sensor_data" << endl;
         return 1;
     }
     
     string inputFile = argv[1];
-    
-    // Extract base name without extension for output directory
     filesystem::path inputPath(inputFile);
-    string baseName = inputPath.stem().string();  // Gets filename without extension
+    string baseName = inputPath.stem().string();
     
-    // Read the binary file
+    filesystem::path outputPath;
+    if(argc >= 3){
+        outputPath = argv[2];
+    }
+    else{
+        outputPath = filesystem::path("outputs") / baseName;
+    }
+    
     cout << "Reading: " << inputFile << endl;
     auto data = readFile(inputFile);
     
@@ -389,15 +394,13 @@ int main(int argc, char* argv[]){
         return 1;
     }
     
-    // Create output directory and generate CSV files
-    string outputDir = ".";
-    cout << "Processing data..." << endl;
-    if(!makeCSVs(data, outputDir)){
+    cout << "Processing data into: " << outputPath.string() << endl;
+    if(!makeCSVs(data, outputPath.string())){
         cerr << "Failed to create CSV files" << endl;
         return 1;
     }
     
-    cout << "Successfully processed " << baseName << " - output in current directory" << endl;
+    cout << "Successfully processed " << baseName << " - output in " << outputPath.string() << endl;
     
     delete data;
     return 0;

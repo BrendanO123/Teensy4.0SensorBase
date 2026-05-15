@@ -4,11 +4,7 @@
 .PHONY: all
 all:
 	$(MAKE) -C PostProcessing all
-
-.PHONY: watch
-watch:
-	$(MAKE) -C PostProcessing watch
-
+	
 .PHONY: clean
 clean:
 	$(MAKE) -C PostProcessing clean
@@ -24,11 +20,6 @@ clean-all:
 .PHONY: distclean
 distclean:
 	$(MAKE) -C PostProcessing distclean
-
-.PHONY: status
-status:
-	$(MAKE) -C PostProcessing status
-
 .PHONY: help
 help:
 	@echo "Root Makefile - PostProcessing targets"

@@ -45,12 +45,6 @@ All commands can be run from the root directory. They forward to `PostProcessing
 ### `make all`
 Compile the data processor and process all `.bin` files in the inputs folder. Creates output directories and processes only files that have changed since the last run.
 
-### `make watch`
-Monitor the inputs folder for new `.bin` files and automatically process them. Useful for real-time data ingestion. Press Ctrl+C to stop.
-
-### `make status`
-Display the current status of input and output files. Shows which `.bin` files are waiting to be processed and what outputs have been generated.
-
 ### `make clean`
 Remove the compiled `data_scrapper.out` executable. Useful for forcing a fresh build.
 

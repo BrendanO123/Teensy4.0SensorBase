@@ -65,12 +65,10 @@ struct IMUGyroDump{
 };
 struct IMUPressureDump{
     uint32_t timestamp;
-    int16_t pressure; int8_t temperature[3];
+    int32_t pressure; int32_t temperature;
     
-    IMUPressureDump(uint32_t ts, int16_t p, int8_t* t)
-        : timestamp(ts), pressure(p) {
-        copy(t, t + 3, temperature);
-    }
+    IMUPressureDump(uint32_t ts, int32_t p, int32_t t)
+        : timestamp(ts), pressure(p), temperature(t) {}
 };
 
 
@@ -232,10 +230,8 @@ DataDump* readFile(string filePath){
                 }
                 if(header & IMU_PRESSURE_DATA){
                     int timestamp = getInt(contents, index);
-                    int16_t pressure = getShort(contents, index);
-                    int8_t temperature[3];
-                    copy(contents + index, contents + index + 3, (char*)temperature);
-                    index += 3;
+                    int pressure = getInt(contents, index);
+                    int32_t temperature = getInt(contents, index);
                     data->IMUPressureData.emplace(timestamp, pressure, temperature);
                 }
             }
@@ -357,7 +353,7 @@ bool makeCSVs(DataDump* data, string outputDir){
         imuPressureFile << "timestamp,pressure,temperature\n";
         while(!data->IMUPressureData.empty()){
             IMUPressureDump dump = data->IMUPressureData.front(); data->IMUPressureData.pop();
-            imuPressureFile << dump.timestamp << "," << dump.pressure << "," << (int)dump.temperature[0] << "," << (int)dump.temperature[1] << "," << (int)dump.temperature[2] << "\n";
+            imuPressureFile << dump.timestamp << "," << dump.pressure << "," << dump.temperature << "\n";
         }
         imuPressureFile.close();
         cout << "Created: " << imuPressurePath << endl;

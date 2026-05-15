@@ -85,7 +85,9 @@ struct IMUDump{
     int16_t ax, ay, az, aAccuracy;
     int16_t cx, cy, cz, cAccuracy;
     int16_t gx, gy, gz, gAccuracy;
-    int16_t pressure; int8_t temperature[3];
+    int32_t pressure; int32_t temperature;
+
+    IMUDump() : timestamp(0), Q1(0), Q2(0), Q3(0), qAccuracy(0), ax(0), ay(0), az(0), aAccuracy(0), cx(0), cy(0), cz(0), cAccuracy(0), gx(0), gy(0), gz(0), gAccuracy(0), pressure(0), temperature(0) {}
 };
 
 struct dataBlock {
@@ -183,7 +185,6 @@ void initSD() {
     Serial.println(DataFileName.c_str());
 }
 
-//TODO: fix pressure and temp readings, and compass scale? seems to hit 8 bit limit in data
 void initIMU(){
     Wire.begin();
     Wire.setClock(400000);  // Fast I2C
@@ -242,6 +243,23 @@ void initIMU(){
     // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
     success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Quat9, 0) == ICM_20948_Stat_Ok); // Set to the maximum
     success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+    success &= (myICM.setDMPODRrate(DMP_ODR_Reg_Pressure, 0) == ICM_20948_Stat_Ok); // Request pressure/temperature output
+
+    // Enable pressure output in the DMP FIFO.
+    // Pressure output requires both the pressure bit and the Header2 bit.
+    uint8_t dmpOutCtl1[2] = {0, 0};
+    if (myICM.readDMPmems(DATA_OUT_CTL1, 2, dmpOutCtl1) == ICM_20948_Stat_Ok)
+    {
+        uint16_t currentOutCtl1 = ((uint16_t)dmpOutCtl1[0] << 8) | dmpOutCtl1[1];
+        currentOutCtl1 |= (DMP_Data_Output_Control_1_Pressure | DMP_Data_Output_Control_1_Header2);
+        dmpOutCtl1[0] = (uint8_t)(currentOutCtl1 >> 8);
+        dmpOutCtl1[1] = (uint8_t)(currentOutCtl1 & 0xFF);
+        success &= (myICM.writeDMPmems(DATA_OUT_CTL1, 2, dmpOutCtl1) == ICM_20948_Stat_Ok);
+    }
+    else
+    {
+        success = false;
+    }
 
     // Enable the FIFO
     success &= (myICM.enableFIFO() == ICM_20948_Stat_Ok);
@@ -457,8 +475,8 @@ void readIMU(dataBlock& data) {
             data.type |= IMU_GYRO_DATA;
         }
         if(dataIn.header & DMP_header_bitmap_Pressure){
-            memcpy(&data.IMUData.pressure, dataIn.Pressure, 2);
-            memcpy(&data.IMUData.temperature, dataIn.Pressure+2, 3);
+            memcpy(&data.IMUData.pressure, dataIn.Pressure, 3);
+            memcpy(&data.IMUData.temperature, dataIn.Pressure+3, 3);
             data.type |= IMU_PRESSURE_DATA;
         }
     }
@@ -542,7 +560,7 @@ void logData(dataBlock& data) {
             memcpy(&logBuffer[logIndex], (char*)&(data.IMUData.gx), GYRO_DATA_SIZE); logIndex += GYRO_DATA_SIZE;
         }
         if(data.type & IMU_PRESSURE_DATA){
-            constexpr const size_t PRESSURE_DATA_SIZE = sizeof(int16_t) + sizeof(int8_t) * 3;
+            constexpr const size_t PRESSURE_DATA_SIZE = sizeof(int32_t) * 2;
             memcpy(&logBuffer[logIndex], (char*)&(data.IMUData.timestamp), sizeof(uint32_t)); logIndex += sizeof(uint32_t);
             memcpy(&logBuffer[logIndex], (char*)&(data.IMUData.pressure), PRESSURE_DATA_SIZE); logIndex += PRESSURE_DATA_SIZE;
         }
